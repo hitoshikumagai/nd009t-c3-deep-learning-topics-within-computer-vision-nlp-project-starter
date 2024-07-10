@@ -16,7 +16,22 @@ def test(model, test_loader):
           testing data loader and will get the test accuray/loss of the model
           Remember to include any debugging/profiling hooks that you might need
     '''
-    pass
+    test_loss = 0
+    correct = 0
+    with torch.no_grad():
+        for data, target in test_loader:
+            output = model(data)
+            test_loss += F.nll_loss(output, target, reduction="sum").item()  # sum up batch loss
+            pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+            correct += pred.eq(target.view_as(pred)).sum().item()
+
+    test_loss /= len(test_loader.dataset)
+
+    print(
+        "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(
+            test_loss, correct, len(test_loader.dataset), 100.0 * correct / len(test_loader.dataset)
+        )
+    )
 
 def train(model, train_loader, criterion, optimizer):
     '''
@@ -24,14 +39,38 @@ def train(model, train_loader, criterion, optimizer):
           data loaders for training and will get train the model
           Remember to include any debugging/profiling hooks that you might need
     '''
-    pass
-    
+    model.train()
+     for e in range(epoch):
+         running_loss=0
+         correct=0
+         for data, target in train_loader:
+             data=data.to(device)
+             target=target.to(device)
+             optimizer.zero_grad()
+             pred = model(data)             #No need to reshape data since CNNs take image inputs
+             loss = cost(pred, target)
+             running_loss+=loss
+             loss.backward()
+             optimizer.step()
+             pred=pred.argmax(dim=1, keepdim=True)
+             correct += pred.eq(target.view_as(pred)).sum().item()
+         print(f"Epoch {e}: Loss {running_loss/len(train_loader.dataset)}, \
+             Accuracy {100*(correct/len(train_loader.dataset))}%")
+
 def net():
     '''
     TODO: Complete this function that initializes your model
           Remember to use a pretrained model
     '''
-    pass
+    model = models.resnet18(pretrained=True)
+
+    for param in model.parameters():
+        param.requires_grad = False   
+
+    num_features　=　model.fc.in_features
+    model.fc = nn.Sequential(
+                   nn.Linear(num_features, 133))
+    return model
 
 def create_data_loaders(data, batch_size):
     '''
@@ -44,19 +83,20 @@ def main(args):
     '''
     TODO: Initialize a model by calling the net function
     '''
-    model=net()
-    
+    model = net()
+    model = model.to(device)
+
     '''
     TODO: Create your loss and optimizer
     '''
-    loss_criterion = None
-    optimizer = None
+    loss_criterion = nn.NLLLoss()
+    optimizer =  optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     
     '''
     TODO: Call the train function to start training your model
     Remember that you will need to set up a way to get training data from S3
     '''
-    model=train(model, train_loader, loss_criterion, optimizer)
+    model = train(model, train_loader, loss_criterion, optimizer)
     
     '''
     TODO: Test the model to see its accuracy
