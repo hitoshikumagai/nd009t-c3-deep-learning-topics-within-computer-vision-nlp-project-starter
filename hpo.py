@@ -49,7 +49,7 @@ def train(model, train_loader, criterion, optimizer):
     model.train()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    for e in range(arg.epoch):
+    for e in range(args.epoch):
         running_loss = 0
         correct = 0
 
