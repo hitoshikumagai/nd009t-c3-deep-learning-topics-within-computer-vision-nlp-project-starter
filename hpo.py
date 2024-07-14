@@ -10,7 +10,11 @@ import torchvision.transforms as transforms
 
 import argparse
 
-def test(model, test_loader):
+import sagemaker
+import boto3
+
+
+def test(model, test_loader, criterion):
     '''
     TODO: Complete this function that can take a model and a 
           testing data loader and will get the test accuray/loss of the model
@@ -21,7 +25,7 @@ def test(model, test_loader):
     with torch.no_grad():
         for data, target in test_loader:
             output = model(data)
-            test_loss += F.nll_loss(output, target, reduction="sum").item()  # sum up batch loss
+            test_loss += criterion(output, target, reduction="sum")  # sum up batch loss
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
 
@@ -33,6 +37,7 @@ def test(model, test_loader):
         )
     )
 
+
 def train(model, train_loader, criterion, optimizer):
     '''
     TODO: Complete this function that can take a model and
@@ -40,22 +45,28 @@ def train(model, train_loader, criterion, optimizer):
           Remember to include any debugging/profiling hooks that you might need
     '''
     model.train()
-     for e in range(epoch):
-         running_loss=0
-         correct=0
-         for data, target in train_loader:
-             data=data.to(device)
-             target=target.to(device)
-             optimizer.zero_grad()
-             pred = model(data)             #No need to reshape data since CNNs take image inputs
-             loss = cost(pred, target)
-             running_loss+=loss
-             loss.backward()
-             optimizer.step()
-             pred=pred.argmax(dim=1, keepdim=True)
-             correct += pred.eq(target.view_as(pred)).sum().item()
-         print(f"Epoch {e}: Loss {running_loss/len(train_loader.dataset)}, \
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    for e in range(arg.epoch):
+        running_loss = 0
+        correct = 0
+
+        for data, target in train_loader:
+            data = data.to(device)
+            target = target.to(device)
+
+            optimizer.zero_grad()
+            pred = model(data)
+            loss = criterion(pred, target)
+            running_loss += loss
+
+            loss.backward()
+            optimizer.step()
+            pred = pred.argmax(dim=1, keepdim=True)
+            correct += pred.eq(target.view_as(pred)).sum().item()
+            print(f"Epoch {e}: Loss {running_loss/len(train_loader.dataset)}, \
              Accuracy {100*(correct/len(train_loader.dataset))}%")
+
 
 def net():
     '''
@@ -65,55 +76,119 @@ def net():
     model = models.resnet18(pretrained=True)
 
     for param in model.parameters():
-        param.requires_grad = False   
+        param.requires_grad = False
 
-    num_features　=　model.fc.in_features
-    model.fc = nn.Sequential(
-                   nn.Linear(num_features, 133))
+    num_features = model.fc.in_features
+    model.fc = nn.Sequential(nn.Linear(num_features, 133))
+
     return model
 
-def create_data_loaders(data, batch_size):
+
+def create_data_loaders(batch_size, prefix):
     '''
     This is an optional function that you may or may not need to implement
     depending on whether you need to use data loaders or not
     '''
-    pass
+    bucket = "sagemaker-studio-146700155215-5c7uj0emdok"
+    s3_resource = boto3.resource('s3')
+    s3_bucket = s3_resource.Bucket(bucket)
+    s3_client = boto3.client('s3')
+
+    object_key = [obj.key for obj in s3_bucket.objects.all()]
+    data_keys = [obj for obj in object_key if f'{prefix}/' in obj]
+
+    X = []
+    for idx, data_key in enumerate(data_keys):
+        response = s3_client.get_object(Bucket=bucket, Key=data_key)
+        image_data = response['Body'].read()
+
+        size = 256, 256
+        try:
+            image = Image.open(io.BytesIO(image_data)).convert('RGB')
+            im_resized = image.resize(size)
+            im_resized = np.array(im_resized)
+        except OSError as e:
+            print(f"Error opening image: {e}")
+
+        X.append(im_resized)
+    X = torch.tensor(X)
+    y_df = pd.read_csv(f's3://{bucket}/nd009t-c2/metadata/{prefix}_metadata.csv', delimiter='\t')
+    y = y_df['label'].values
+    y = torch.LongTensor(y)
+
+    Dataset = torch.utils.data.TensorDataset(X, y)
+    Loader = torch.utils.data.DataLoader(dataset=Dataset,
+                                         batch_size=batch_size,
+                                         shuffle=True,
+                                         num_workers=2)
+    return Loader
+
 
 def main(args):
+    train_loader = create_data_loaders(args.batch_size, 'train')
+    test_loader = create_data_loaders(args.test_batch_size, 'test')
+
     '''
     TODO: Initialize a model by calling the net function
     '''
     model = net()
-    model = model.to(device)
 
     '''
     TODO: Create your loss and optimizer
     '''
-    loss_criterion = nn.NLLLoss()
-    optimizer =  optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
-    
+    criterion = nn.NLLLoss()
+    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+
     '''
     TODO: Call the train function to start training your model
     Remember that you will need to set up a way to get training data from S3
     '''
-    model = train(model, train_loader, loss_criterion, optimizer)
-    
+    model = train(model, train_loader, criterion, optimizer)
+
     '''
     TODO: Test the model to see its accuracy
     '''
     test(model, test_loader, criterion)
-    
+
     '''
     TODO: Save the trained model
     '''
-    torch.save(model, path)
+    #torch.save(model, path)
 
-if __name__=='__main__':
-    parser=argparse.ArgumentParser()
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
     '''
     TODO: Specify all the hyperparameters you need to use to train your model.
     '''
-    
-    args=parser.parse_args()
-    
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=64,
+        metavar="N",
+        help="input batch size for training (default: 64)",
+    )
+    parser.add_argument(
+        "--test-batch-size",
+        type=int,
+        default=1000,
+        metavar="N",
+        help="input batch size for testing (default: 1000)",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=10,
+        metavar="N",
+        help="number of epochs to train (default: 10)",
+    )
+    parser.add_argument(
+        "--lr", type=float, default=1.0, metavar="LR", help="learning rate (default: 1.0)"
+    )
+    parser.add_argument(
+        "--momentum", type=float, default=0.9, metavar="LR", help="momentum (default: 0.9)"
+    )
+    args = parser.parse_args()
     main(args)
