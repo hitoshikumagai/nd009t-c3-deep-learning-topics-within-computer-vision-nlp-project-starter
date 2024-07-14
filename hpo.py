@@ -1,6 +1,7 @@
 #TODO: Import your dependencies.
 #For instance, below are some dependencies you might need if you are using Pytorch
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -12,7 +13,8 @@ import argparse
 
 import sagemaker
 import boto3
-
+from PIL import Image
+import io
 
 def test(model, test_loader, criterion):
     '''
@@ -25,8 +27,8 @@ def test(model, test_loader, criterion):
     with torch.no_grad():
         for data, target in test_loader:
             output = model(data)
-            test_loss += criterion(output, target, reduction="sum")  # sum up batch loss
-            pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+            test_loss += criterion(output, target, reduction="sum")
+            pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
 
     test_loss /= len(test_loader.dataset)
@@ -166,29 +168,29 @@ if __name__ == '__main__':
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=64,
+        default=256,
         metavar="N",
-        help="input batch size for training (default: 64)",
+        help="input batch size for training (default:256)",
     )
     parser.add_argument(
         "--test-batch-size",
         type=int,
         default=1000,
         metavar="N",
-        help="input batch size for testing (default: 1000)",
+        help="input batch size for testing (default:1000)",
     )
     parser.add_argument(
         "--epochs",
         type=int,
         default=10,
         metavar="N",
-        help="number of epochs to train (default: 10)",
+        help="number of epochs to train (default:10)",
     )
     parser.add_argument(
-        "--lr", type=float, default=1.0, metavar="LR", help="learning rate (default: 1.0)"
+        "--lr", type=float, default=1.0, metavar="LR", help="learning rate(default:1.0)"
     )
     parser.add_argument(
-        "--momentum", type=float, default=0.9, metavar="LR", help="momentum (default: 0.9)"
+        "--momentum", type=float, default=0.9, metavar="LR", help="momentum(default:0.9)"
     )
     args = parser.parse_args()
     main(args)
