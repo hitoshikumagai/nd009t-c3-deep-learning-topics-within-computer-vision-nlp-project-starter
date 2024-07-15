@@ -49,7 +49,7 @@ def train(model, train_loader, criterion, optimizer):
     model.train()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    for e in range(args.epoch):
+    for e in range(args.epochs):
         running_loss = 0
         correct = 0
 
@@ -108,7 +108,7 @@ def create_data_loaders(batch_size, prefix):
         try:
             image = Image.open(io.BytesIO(image_data)).convert('RGB')
             im_resized = image.resize(size)
-            im_resized = np.array(im_resized)
+            im_resized = np.array(im_resized).astype(np.float32).transpose(2, 1, 0)
         except OSError as e:
             print(f"Error opening image: {e}")
 
@@ -127,7 +127,7 @@ def create_data_loaders(batch_size, prefix):
 
 
 def main(args):
-    train_loader = create_data_loaders(args.batch_size, 'train')
+    train_loader = create_data_loaders(args.batch_size, 'valid')
     test_loader = create_data_loaders(args.test_batch_size, 'test')
 
     '''
@@ -138,7 +138,7 @@ def main(args):
     '''
     TODO: Create your loss and optimizer
     '''
-    criterion = nn.NLLLoss()
+    criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
     '''
