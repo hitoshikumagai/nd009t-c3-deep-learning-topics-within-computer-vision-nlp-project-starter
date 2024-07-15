@@ -46,8 +46,9 @@ def train(model, train_loader, criterion, optimizer):
           data loaders for training and will get train the model
           Remember to include any debugging/profiling hooks that you might need
     '''
-    model.train()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.train()
+    model.to(device)
 
     for e in range(args.epochs):
         running_loss = 0
