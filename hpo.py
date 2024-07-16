@@ -1,21 +1,13 @@
 #TODO: Import your dependencies.
 #For instance, below are some dependencies you might need if you are using Pytorch
-import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torchvision.models as models
 import torchvision.transforms as transforms
+import json, os, argparse
 
-import argparse
-
-import sagemaker
-import boto3
-from PIL import Image
-import io
-import os
 
 def test(model, test_loader, criterion):
     '''
@@ -23,10 +15,10 @@ def test(model, test_loader, criterion):
           testing data loader and will get the test accuray/loss of the model
           Remember to include any debugging/profiling hooks that you might need
     '''
+    model.eval()
     test_loss = 0
     correct = 0
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model.eval()
 
     with torch.no_grad():
         for data, target in test_loader:
@@ -75,6 +67,8 @@ def train(model, train_loader, criterion, optimizer):
             print(f"Epoch {e}: Loss {running_loss/len(train_loader.dataset)}, \
              Accuracy {100*(correct/len(train_loader.dataset))}%")
 
+    return model
+
 
 def net():
     '''
@@ -98,6 +92,7 @@ def create_data_loaders(batch_size, prefix):
     depending on whether you need to use data loaders or not
     '''
 
+
 def main(args):
     #preprocess reference: https://pytorch.org/vision/main/models/generated/torchvision.models.resnet18.html
     training_transform = transforms.Compose([
@@ -114,11 +109,15 @@ def main(args):
         transforms.ToTensor(),
         transforms.Normalize((0.485, 0.485, 0.485), (0.229, 0.224, 0.225))
         ])
-    train_dir = args.data + 'nd009t-c2/train/'
+
+    channels = args.data
+    channels_list = json.loads(channels)
+
+    train_dir = os.environ.get('SM_CHANNEL_' + channels_list[0].upper())
     train_dataset = torchvision.datasets.ImageFolder(root=train_dir, transform=training_transform)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 
-    test_dir = args.data + 'nd009t-c2/test/'
+    test_dir = os.environ.get('SM_CHANNEL_' + channels_list[1].upper())
     test_dataset = torchvision.datasets.ImageFolder(root=test_dir, transform=testing_transform)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.test_batch_size, shuffle=True)
 
@@ -130,7 +129,7 @@ def main(args):
     '''
     TODO: Create your loss and optimizer
     '''
-    criterion = nn.nll_loss()
+    criterion = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
     '''
@@ -152,7 +151,6 @@ def main(args):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
     '''
     TODO: Specify all the hyperparameters you need to use to train your model.
     '''
@@ -184,6 +182,6 @@ if __name__ == '__main__':
     parser.add_argument(
         "--momentum", type=float, default=0.9, metavar="LR", help="momentum(default:0.9)"
     )
-    parser.add_argument('--data', type=str, default=os.environ['SM_CHANNEL_TRAIN'])
+    parser.add_argument('--data', type=str, default=os.environ['SM_CHANNELS'])
     args = parser.parse_args()
     main(args)
