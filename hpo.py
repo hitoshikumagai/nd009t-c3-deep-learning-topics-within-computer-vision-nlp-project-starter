@@ -9,7 +9,7 @@ import torchvision.transforms as transforms
 import json, os, argparse
 
 
-def test(model, test_loader, criterion):
+def test(model, test_loader, criterion, device, mode='test'):
     '''
     TODO: Complete this function that can take a model and a 
           testing data loader and will get the test accuray/loss of the model
@@ -18,33 +18,37 @@ def test(model, test_loader, criterion):
     model.eval()
     test_loss = 0
     correct = 0
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
-            test_loss += criterion(output, target, reduction="sum")
+            test_loss += criterion(output, target)
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
 
     test_loss /= len(test_loader.dataset)
-
-    print(
-        "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(
-            test_loss, correct, len(test_loader.dataset), 100.0 * correct / len(test_loader.dataset)
+    
+    if mode == 'valid':
+        print(
+            "\n Valid Loss: valid_loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(
+                test_loss, correct, len(test_loader.dataset), 100.0 * correct / len(test_loader.dataset)
+            )
+        )        
+    else:
+        print(
+            "\n Test Loss: testing_loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(
+                test_loss, correct, len(test_loader.dataset), 100.0 * correct / len(test_loader.dataset)
+            )
         )
-    )
 
 
-def train(model, train_loader, criterion, optimizer):
+def train(model, train_loader, valid_loader, criterion, optimizer, device):
     '''
     TODO: Complete this function that can take a model and
           data loaders for training and will get train the model
           Remember to include any debugging/profiling hooks that you might need
     '''
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model.to(device)
 
     for e in range(args.epochs):
         model.train()
@@ -66,7 +70,9 @@ def train(model, train_loader, criterion, optimizer):
             correct += pred.eq(target.view_as(pred)).sum().item()
             print(f"Epoch {e}: Loss {running_loss/len(train_loader.dataset)}, \
              Accuracy {100*(correct/len(train_loader.dataset))}%")
-
+            
+        test(model, valid_loader, criterion, device, 'valid')
+        
     return model
 
 
@@ -111,13 +117,16 @@ def main(args):
         ])
 
     channels = args.data
-    channels_list = json.loads(channels)
 
-    train_dir = os.environ.get('SM_CHANNEL_' + channels_list[0].upper())
+    train_dir = channels + '/train/'
     train_dataset = torchvision.datasets.ImageFolder(root=train_dir, transform=training_transform)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 
-    test_dir = os.environ.get('SM_CHANNEL_' + channels_list[1].upper())
+    valid_dir = channels + '/valid/'
+    valid_dataset = torchvision.datasets.ImageFolder(root=valid_dir, transform=testing_transform)
+    valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=True)
+    
+    test_dir = channels + '/test/'
     test_dataset = torchvision.datasets.ImageFolder(root=test_dir, transform=testing_transform)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.test_batch_size, shuffle=True)
 
@@ -129,24 +138,26 @@ def main(args):
     '''
     TODO: Create your loss and optimizer
     '''
-    criterion = nn.NLLLoss()
+    criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
     '''
     TODO: Call the train function to start training your model
     Remember that you will need to set up a way to get training data from S3
     '''
-    model = train(model, train_loader, criterion, optimizer)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = model.to(device)
+    model = train(model, train_loader, valid_loader, criterion, optimizer, device)
 
     '''
     TODO: Test the model to see its accuracy
     '''
-    test(model, test_loader, criterion)
+    test(model, test_loader, criterion, device)
 
     '''
     TODO: Save the trained model
     '''
-    #torch.save(model, path)
+    torch.save(model.state_dict(), os.path.join(args.model_dir, "model.pth"))
 
 
 if __name__ == '__main__':
@@ -172,9 +183,9 @@ if __name__ == '__main__':
     parser.add_argument(
         "--epochs",
         type=int,
-        default=10,
+        default=5,
         metavar="N",
-        help="number of epochs to train (default:10)",
+        help="number of epochs to train (default:5)",
     )
     parser.add_argument(
         "--lr", type=float, default=1.0, metavar="LR", help="learning rate(default:1.0)"
@@ -182,6 +193,10 @@ if __name__ == '__main__':
     parser.add_argument(
         "--momentum", type=float, default=0.9, metavar="LR", help="momentum(default:0.9)"
     )
-    parser.add_argument('--data', type=str, default=os.environ['SM_CHANNELS'])
+    parser.add_argument('--data', type=str, default=os.environ['SM_CHANNEL_TRAINING'])
+    parser.add_argument('--model_dir', type=str, default=os.environ['SM_MODEL_DIR'])
+    parser.add_argument('--output_dir', type=str, default=os.environ['SM_OUTPUT_DATA_DIR'])
+
     args = parser.parse_args()
+    print(args)
     main(args)
