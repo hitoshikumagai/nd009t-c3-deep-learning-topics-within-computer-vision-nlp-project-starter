@@ -7,7 +7,7 @@ import torchvision
 import torchvision.models as models
 import torchvision.transforms as transforms
 import json, os, argparse
-
+import smdebug.pytorch as smd
 
 def test(model, test_loader, criterion, device, hook, mode='test'):
     '''
@@ -15,6 +15,7 @@ def test(model, test_loader, criterion, device, hook, mode='test'):
           testing data loader and will get the test accuray/loss of the model
           Remember to include any debugging/profiling hooks that you might need
     '''
+    hook.set_mode(smd.modes.EVAL)
     model.eval()
     test_loss = 0
     correct = 0
@@ -49,7 +50,7 @@ def train(model, train_loader, valid_loader, criterion, optimizer, device, hook)
           data loaders for training and will get train the model
           Remember to include any debugging/profiling hooks that you might need
     '''
-
+    hook.set_mode(smd.modes.TRAIN)
     for e in range(args.epochs):
         model.train()
         running_loss = 0
@@ -92,14 +93,11 @@ def net():
     return model
 
 
-def create_data_loaders(batch_size, prefix):
+def create_data_loaders(args):
     '''
     This is an optional function that you may or may not need to implement
     depending on whether you need to use data loaders or not
     '''
-
-
-def main(args):
     #preprocess reference: https://pytorch.org/vision/main/models/generated/torchvision.models.resnet18.html
     training_transform = transforms.Compose([
         transforms.Resize((256, 256)),
@@ -130,11 +128,19 @@ def main(args):
     test_dataset = torchvision.datasets.ImageFolder(root=test_dir, transform=testing_transform)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.test_batch_size, shuffle=True)
 
+    return train_loader, valid_loader, test_loader
+
+def main(args):
+    
+    train_loader, valid_loader, test_loader = create_data_loaders(args)
+
     '''
     TODO: Initialize a model by calling the net function
     '''
     model = net()
-
+    hook = smd.Hook.create_from_json_file()
+    hook.register_hook(model)
+    
     '''
     TODO: Create your loss and optimizer
     '''
