@@ -15,10 +15,19 @@ The project is designed to be dataset independent so if there is a dataset that 
 Upload the data to an S3 bucket through the AWS Gateway so that SageMaker has access to the data. 
 
 ## Hyperparameter Tuning
-What kind of model did you choose for this experiment and why? Give an overview of the types of parameters and their ranges used for the hyperparameter search
+### About Model in this project 
+I selected RESNET18 because it has simple and efficient structure
+Number of Layers: Despite the relatively shallow number of layers (18), it performs as well as a deep network. This is achieved through a structure called residual blocks.
+### Tuned Hyperparameter
+* learning rate: [0.01, 0.1]
+    * Definition: The step size for updating the parameters of the model.
+    * Role: If the learning rate is too large, oscillations will occur and convergence to an optimal solution will be difficult. Conversely, if it is too small, learning will be very slow.
+* momentum: [0.01, 0.9]
+    * Definition: A technique to add inertia in the direction of parameter updates to stabilize the direction to the optimal solution and prevent falling into a local solution.
+    * Role: Introducing momentum allows for smoother movement to the optimal solution in error functions where the parameters are trough-like in shape.
 
-Remember that your README should:
-- Include a screenshot of completed training jobs
+### Result
+![completed training jobs](image/hpo_loss.png)
 - Logs metrics during the training process
 - Tune at least two hyperparameters
 - Retrieve the best best hyperparameters from all your training jobs
