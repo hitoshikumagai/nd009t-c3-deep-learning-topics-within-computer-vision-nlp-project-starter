@@ -27,10 +27,13 @@ Number of Layers: Despite the relatively shallow number of layers (18), it perfo
     * Role: Introducing momentum allows for smoother movement to the optimal solution in error functions where the parameters are trough-like in shape.
 
 ### Result
+* Completed training jobs
 ![completed training jobs](image/hpo_loss.png)
-- Logs metrics during the training process
-- Tune at least two hyperparameters
-- Retrieve the best best hyperparameters from all your training jobs
+* Logs metrics during the training process
+![cloudwatch](image/cloudwatch.png)
+* Best training job hyperparameters
+![Best training job hyperparameters](image/hpo_loss.png)
+
 
 ## Debugging and Profiling
 **TODO**: Give an overview of how you performed model debugging and profiling in Sagemaker
