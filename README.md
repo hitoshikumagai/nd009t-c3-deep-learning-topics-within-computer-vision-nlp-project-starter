@@ -36,11 +36,24 @@ Number of Layers: Despite the relatively shallow number of layers (18), it perfo
 
 
 ## Debugging and Profiling
-**TODO**: Give an overview of how you performed model debugging and profiling in Sagemaker
+I configured a debugging and profiling setup for a machine learning model, likely being trained using a framework like PyTorch and deployed on Amazon SageMaker. 
+
+* Rule Configuration
+    * vanishing_gradient(): This rule is designed to monitor for the vanishing gradient problem * during training. Vanishing gradients can hinder the training process by causing the gradients to become extremely small, making it difficult for the model to learn.
+    * overfit(): This rule checks for overfitting, a condition where the model becomes too specialized to the training data and performs poorly on unseen data.
+    * ProfilerReport(): This rule enables profiling, which involves collecting performance metrics about the training process.
+
+By monitoring for vanishing gradients, overfitting, and collecting performance metrics, it helps in:
+
+* Identifying and addressing training issues: The rules help detect common problems like vanishing gradients and overfitting, allowing for timely adjustments to the model or training process.
+* Optimizing performance: The profiler provides insights into the computational efficiency of the model, enabling developers to identify bottlenecks and optimize the code.
+* Ensuring model quality: By monitoring the model's behavior during training, developers can ensure that the model is learning effectively and generalizing well to new data.
 
 ### Results
-**TODO**: What are the results/insights did you get by profiling/debugging your model?
+The phenomenon where the loss temporarily worsens during deep learning training is known as `Deep Double Descent`. This behavior is attributed to the characteristics of deep learning. Based on my research, I believe the following two approaches are effective:
 
+* Regularization: I will re-run the experiment by setting a regularization term in the criterion.
+* Parameter size variation: I will use models with different parameter sizes.
 
 ## Model Deployment
 
