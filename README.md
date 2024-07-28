@@ -41,13 +41,34 @@ Number of Layers: Despite the relatively shallow number of layers (18), it perfo
 ### Results
 **TODO**: What are the results/insights did you get by profiling/debugging your model?
 
-**TODO** Remember to provide the profiler html/pdf file in your submission.
-
 
 ## Model Deployment
-**TODO**: Give an overview of the deployed model and instructions on how to query the endpoint with a sample input.
 
-**TODO** Remember to provide a screenshot of the deployed active endpoint in Sagemaker.
+I deployed a PyTorch model to a SageMaker endpoint and then uses that endpoint to make a prediction on an image. Here's a breakdown of the steps:
+
+1. Define Serializers and Predictor Class:
+* jpeg_serializer: This specifies that the input data for the endpoint will be in JPEG image format.
+* json_deserializer: This specifies that the output from the endpoint will be in JSON format.
+ImagePredictor: This class inherits from the sagemaker.predictor.Predictor class and defines the specific serializer and deserializer to be used for image prediction.
+
+2. Load the Model:
+* model_data: This variable holds the path (S3 location) of the trained PyTorch model archive (.tar.gz).
+* pytorch_model: This creates a PyTorchModel object using the model data, along with other parameters like the IAM role, entry script (pred.py), Python version, framework version (PyTorch 1.8), and the custom predictor class (ImagePredictor).
+
+3. Deploy the Model:
+* deploy(initial_instance_count=1, instance_type='ml.m5.large'): This deploys the PyTorch model to a SageMaker endpoint.
+
+4. Make a Prediction:
+* Opens the image file "Affenpinscher_00003.jpg" in binary read mode.
+* payload: Reads the image content into a byte array.
+* predictor.predict(payload): Sends the image data (payload) to the deployed endpoint for prediction.
+
+5. Process Prediction Output:
+* inference: This variable holds the prediction results returned by the endpoint (likely probabilities for different classes).
+* np.argmax(inference) + 1: This uses NumPy to find the index of the class with the highest probability in the prediction output and adds 1 (assuming class indices start from 0).
+
+* Screenshot of the deployed active endpoint in Sagemaker
+![Best training job hyperparameters](image/inference.png)
 
 ## Standout Suggestions
 **TODO (Optional):** This is where you can provide information about any standout suggestions that you have attempted.
