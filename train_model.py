@@ -16,6 +16,7 @@ def test(model, test_loader, criterion, device, hook, mode='test'):
           Remember to include any debugging/profiling hooks that you might need
     '''
     hook.set_mode(smd.modes.EVAL)
+    hook.register_loss(criterion)
     model.eval()
     test_loss = 0
     correct = 0
@@ -51,6 +52,7 @@ def train(model, train_loader, valid_loader, criterion, optimizer, device, hook)
           Remember to include any debugging/profiling hooks that you might need
     '''
     hook.set_mode(smd.modes.TRAIN)
+    hook.register_loss(criterion)
     for e in range(args.epochs):
         model.train()
         running_loss = 0
@@ -175,9 +177,9 @@ if __name__ == '__main__':
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=256,
+        default=512,
         metavar="N",
-        help="input batch size for training (default:256)",
+        help="input batch size for training (default:512)",
     )
     parser.add_argument(
         "--test-batch-size",
